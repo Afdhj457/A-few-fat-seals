@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>圆润海豹 · 沙滩 Three.js · 鱼群游过</title>
+    <title>圆润海豹 · 多块沙滩 · 浮冰 · 鱼群</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         #info {
@@ -19,7 +19,6 @@
             backdrop-filter: blur(5px);
             z-index: 10;
         }
-        /* 公告板 */
         #announcement {
             position: absolute;
             top: 15px;
@@ -52,7 +51,6 @@
         #announcement .icon {
             font-size: 15px;
         }
-        /* 加载提示 */
         #loading-toast {
             position: absolute;
             bottom: 80px;
@@ -72,7 +70,6 @@
             opacity: 1;
         }
         
-        /* 移动端虚拟摇杆 */
         #joystick-zone {
             position: fixed;
             bottom: 30px;
@@ -116,7 +113,6 @@
             z-index: 10;
         }
         
-        /* 嗷呜提示 */
         #woof-toast {
             position: absolute;
             top: 50%;
@@ -172,7 +168,7 @@
     </style>
 </head>
 <body>
-    <div id="info">🦭 圆润海豹 · 点击海豹会嗷呜～ · 水下有鱼</div>
+    <div id="info">🦭 两只海豹 · 多块沙滩 · 点击会嗷呜～</div>
     
     <div id="announcement">
         <span class="icon">📢</span>
@@ -202,13 +198,13 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // --- 初始化场景、相机、渲染器 ---
+        // --- 初始化 ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xaad4f5);
-        scene.fog = new THREE.Fog(0xaad4f5, 20, 60);
+        scene.fog = new THREE.Fog(0xaad4f5, 25, 80);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(6, 5, 12);
+        camera.position.set(8, 7, 18);
         camera.lookAt(0, 1, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -227,48 +223,46 @@
         controls.maxPolarAngle = Math.PI / 2.2;
         controls.enablePan = false;
         
-        // 射线检测器
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         
-        // 移动状态
         const moveState = { forward: false, backward: false, left: false, right: false };
-        const moveSpeed = 0.15;
+        const moveSpeed = 0.18;
 
         // --- 灯光 ---
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambientLight);
 
         const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
-        sunLight.position.set(10, 20, 5);
+        sunLight.position.set(12, 22, 8);
         sunLight.castShadow = true;
         sunLight.receiveShadow = true;
         sunLight.shadow.mapSize.width = 1024;
         sunLight.shadow.mapSize.height = 1024;
-        const d = 20;
+        const d = 30;
         sunLight.shadow.camera.left = -d;
         sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d;
         sunLight.shadow.camera.bottom = -d;
         sunLight.shadow.camera.near = 1;
-        sunLight.shadow.camera.far = 50;
+        sunLight.shadow.camera.far = 70;
         sunLight.shadow.bias = -0.0005;
         scene.add(sunLight);
 
         const fillLight = new THREE.DirectionalLight(0xccddff, 0.5);
-        fillLight.position.set(-5, 5, 10);
+        fillLight.position.set(-8, 6, 12);
         scene.add(fillLight);
 
         const backLight = new THREE.PointLight(0xffaa66, 0.4);
-        backLight.position.set(-5, 5, -10);
+        backLight.position.set(-8, 6, -12);
         scene.add(backLight);
 
-        // --- 创建水下环境 (一个半透明的水面层，用于看到水下的鱼) ---
-        const waterPlaneGeometry = new THREE.CircleGeometry(20, 64);
+        // --- 水面层 ---
+        const waterPlaneGeometry = new THREE.CircleGeometry(40, 64);
         const waterPlaneMaterial = new THREE.MeshStandardMaterial({
             color: 0x4a9ec9,
             transparent: true,
-            opacity: 0.25,
+            opacity: 0.2,
             side: THREE.DoubleSide,
             roughness: 0.2,
             metalness: 0.1,
@@ -277,76 +271,194 @@
         });
         const waterPlane = new THREE.Mesh(waterPlaneGeometry, waterPlaneMaterial);
         waterPlane.rotation.x = -Math.PI / 2;
-        waterPlane.position.y = 0.02; // 略高于沙地，形成水面
+        waterPlane.position.y = 0.02;
         waterPlane.receiveShadow = false;
-        waterPlane.renderOrder = 1; // 在水下鱼之后渲染
+        waterPlane.renderOrder = 1;
         scene.add(waterPlane);
 
-        // --- 沙滩 ---
-        const sandGeometry = new THREE.CircleGeometry(20, 64);
-        const sandMaterial = new THREE.MeshStandardMaterial({
+        // --- 多块沙滩 (不规则沙地) ---
+        // 主沙滩 (较大)
+        const sandMainGeo = new THREE.CircleGeometry(22, 64);
+        const sandMainMat = new THREE.MeshStandardMaterial({
             color: 0xf5e6c4,
             roughness: 0.9,
             emissive: new THREE.Color(0x332211),
             emissiveIntensity: 0.1,
             side: THREE.DoubleSide
         });
-        const sand = new THREE.Mesh(sandGeometry, sandMaterial);
-        sand.rotation.x = -Math.PI / 2;
-        sand.position.y = -0.02;
-        sand.receiveShadow = true;
-        sand.renderOrder = 0;
-        scene.add(sand);
+        const sandMain = new THREE.Mesh(sandMainGeo, sandMainMat);
+        sandMain.rotation.x = -Math.PI / 2;
+        sandMain.position.set(0, -0.06, 0);
+        sandMain.receiveShadow = true;
+        scene.add(sandMain);
 
-        // 沙粒
-        for (let i = 0; i < 200; i++) {
-            const grainGeo = new THREE.CircleGeometry(0.04 + Math.random()*0.06, 5);
+        // 辅助沙滩 - 几块不同大小和位置的沙地
+        const sandPatches = [
+            { radius: 8, pos: [14, -0.055, 6], color: 0xe8d8b8 },
+            { radius: 7, pos: [-12, -0.055, 10], color: 0xf0e0c0 },
+            { radius: 6, pos: [10, -0.055, -14], color: 0xecdcc0 },
+            { radius: 9, pos: [-14, -0.055, -8], color: 0xf2e2c4 },
+            { radius: 5, pos: [18, -0.05, -6], color: 0xe6d6b6 },
+            { radius: 6, pos: [-18, -0.05, 4], color: 0xeedec2 },
+            { radius: 7, pos: [4, -0.055, 18], color: 0xf4e4c6 },
+            { radius: 5, pos: [-6, -0.05, -18], color: 0xe9d9b9 }
+        ];
+
+        sandPatches.forEach(patch => {
+            const geo = new THREE.CircleGeometry(patch.radius, 32);
+            const mat = new THREE.MeshStandardMaterial({
+                color: patch.color,
+                roughness: 0.92,
+                emissive: new THREE.Color(0x332211),
+                emissiveIntensity: 0.08,
+                side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.set(patch.pos[0], patch.pos[1], patch.pos[2]);
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+        });
+
+        // 沙粒装饰 (更多，散布在多个沙滩区域)
+        for (let i = 0; i < 350; i++) {
+            const grainGeo = new THREE.CircleGeometry(0.04 + Math.random()*0.07, 5);
             const grainMat = new THREE.MeshStandardMaterial({
                 color: Math.random() > 0.5 ? 0xd9c8a8 : 0xe8d8b8,
-                roughness: 0.8,
-                emissive: new THREE.Color(0x221100),
-                emissiveIntensity: 0.1
+                roughness: 0.8
             });
             const grain = new THREE.Mesh(grainGeo, grainMat);
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 3 + Math.random() * 15;
-            grain.position.x = Math.cos(angle) * radius;
-            grain.position.z = Math.sin(angle) * radius;
-            grain.position.y = 0.005 + Math.random() * 0.02;
+            
+            // 随机选择一块沙滩区域散布
+            let baseX, baseZ;
+            if (Math.random() < 0.4) {
+                // 主沙滩
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 20;
+                baseX = Math.cos(angle) * radius;
+                baseZ = Math.sin(angle) * radius;
+            } else {
+                // 辅助沙滩
+                const patch = sandPatches[Math.floor(Math.random() * sandPatches.length)];
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * patch.radius * 0.9;
+                baseX = patch.pos[0] + Math.cos(angle) * radius;
+                baseZ = patch.pos[2] + Math.sin(angle) * radius;
+            }
+            
+            grain.position.x = baseX;
+            grain.position.z = baseZ;
+            grain.position.y = 0.0 + Math.random() * 0.02;
             grain.rotation.x = -Math.PI / 2;
             grain.rotation.z = Math.random() * Math.PI;
             grain.receiveShadow = true;
             scene.add(grain);
         }
 
-        // 鹅卵石
-        const stoneGeo = new THREE.SphereGeometry(0.15, 6);
+        // 鹅卵石 (散布)
+        const stoneGeo = new THREE.SphereGeometry(0.12 + Math.random()*0.15, 6);
         const stoneMat = new THREE.MeshStandardMaterial({ color: 0xbbaa99, roughness: 0.7 });
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 20; i++) {
             const stone = new THREE.Mesh(stoneGeo, stoneMat);
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 5 + Math.random() * 10;
-            stone.position.x = Math.cos(angle) * radius;
-            stone.position.z = Math.sin(angle) * radius;
-            stone.position.y = 0.1;
+            
+            let baseX, baseZ;
+            if (Math.random() < 0.5) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 8 + Math.random() * 16;
+                baseX = Math.cos(angle) * radius;
+                baseZ = Math.sin(angle) * radius;
+            } else {
+                const patch = sandPatches[Math.floor(Math.random() * sandPatches.length)];
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * patch.radius * 0.8;
+                baseX = patch.pos[0] + Math.cos(angle) * radius;
+                baseZ = patch.pos[2] + Math.sin(angle) * radius;
+            }
+            
+            stone.position.x = baseX;
+            stone.position.z = baseZ;
+            stone.position.y = 0.05;
             stone.scale.set(1, 0.4, 1);
             stone.castShadow = true;
             stone.receiveShadow = true;
             scene.add(stone);
         }
 
-        // --- 创建鱼群 (水下) ---
-        const fishGroup = new THREE.Group();
+        // --- 浮冰 (扩大版) ---
+        const iceGeometry = new THREE.CylinderGeometry(5.5, 5.8, 0.45, 16);
+        const iceMaterial = new THREE.MeshStandardMaterial({
+            color: 0xe8f0f8,
+            roughness: 0.3,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.95,
+            emissive: new THREE.Color(0x88aacc),
+            emissiveIntensity: 0.1
+        });
+        const ice = new THREE.Mesh(iceGeometry, iceMaterial);
+        ice.position.y = 0.25;
+        ice.receiveShadow = true;
+        ice.castShadow = true;
+        ice.rotation.y = 0.3;
+        scene.add(ice);
+
+        // 浮冰边缘不规则冰块
+        for (let i = 0; i < 16; i++) {
+            const angle = (i / 16) * Math.PI * 2 + Math.random() * 0.3;
+            const radius = 5.5 + Math.random() * 1.0;
+            const chunkGeo = new THREE.DodecahedronGeometry(0.3 + Math.random() * 0.5);
+            const chunkMat = new THREE.MeshStandardMaterial({
+                color: 0xe0ecf5,
+                roughness: 0.4,
+                metalness: 0.1,
+                transparent: true,
+                opacity: 0.9
+            });
+            const chunk = new THREE.Mesh(chunkGeo, chunkMat);
+            chunk.position.set(
+                Math.cos(angle) * radius,
+                0.25 + Math.random() * 0.15,
+                Math.sin(angle) * radius
+            );
+            chunk.scale.set(1, 0.3, 1);
+            chunk.rotation.y = Math.random() * Math.PI;
+            chunk.castShadow = true;
+            chunk.receiveShadow = true;
+            scene.add(chunk);
+        }
+
+        // 浮冰上的小雪堆
+        for (let i = 0; i < 12; i++) {
+            const snowGeo = new THREE.SphereGeometry(0.2 + Math.random() * 0.35, 8);
+            const snowMat = new THREE.MeshStandardMaterial({
+                color: 0xf8f8ff,
+                roughness: 0.8,
+                transparent: true,
+                opacity: 0.95
+            });
+            const snow = new THREE.Mesh(snowGeo, snowMat);
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * 4.5;
+            snow.position.set(
+                Math.cos(angle) * radius,
+                0.4 + Math.random() * 0.1,
+                Math.sin(angle) * radius
+            );
+            snow.scale.set(1, 0.6, 1);
+            snow.castShadow = true;
+            snow.receiveShadow = true;
+            scene.add(snow);
+        }
+
+        // --- 鱼群 ---
         const fishes = [];
         
-        // 创建一条鱼的函数
         function createFish() {
             const fishGroup = new THREE.Group();
             
-            // 鱼身 (椭球体)
             const bodyGeo = new THREE.SphereGeometry(0.3, 12, 12);
             const bodyMat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color().setHSL(Math.random() * 0.15 + 0.05, 0.8, 0.6), // 橙红色系
+                color: new THREE.Color().setHSL(Math.random() * 0.15 + 0.05, 0.8, 0.6),
                 roughness: 0.4,
                 metalness: 0.2,
                 emissive: new THREE.Color(0x442200),
@@ -355,10 +467,8 @@
             const body = new THREE.Mesh(bodyGeo, bodyMat);
             body.scale.set(1.6, 0.8, 0.7);
             body.castShadow = true;
-            body.receiveShadow = false;
             fishGroup.add(body);
             
-            // 尾巴 (三角形)
             const tailGeo = new THREE.ConeGeometry(0.25, 0.4, 4);
             const tailMat = new THREE.MeshStandardMaterial({
                 color: bodyMat.color.clone().multiplyScalar(0.8),
@@ -371,7 +481,6 @@
             tail.scale.set(0.8, 0.5, 0.3);
             fishGroup.add(tail);
             
-            // 眼睛
             const eyeGeo = new THREE.SphereGeometry(0.06, 6);
             const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
             const eye = new THREE.Mesh(eyeGeo, eyeMat);
@@ -382,7 +491,6 @@
             eye2.position.set(0.35, 0.12, -0.18);
             fishGroup.add(eye2);
             
-            // 背鳍
             const finGeo = new THREE.ConeGeometry(0.12, 0.25, 4);
             const finMat = new THREE.MeshStandardMaterial({
                 color: bodyMat.color.clone().multiplyScalar(0.7),
@@ -394,217 +502,262 @@
             fin.scale.set(0.8, 1, 0.3);
             fishGroup.add(fin);
             
-            // 随机颜色微调
             return fishGroup;
         }
         
-        // 创建多条鱼并随机分布在水下
-        const fishCount = 15;
-        for (let i = 0; i < fishCount; i++) {
+        // 鱼群分布在浮冰周围
+        for (let i = 0; i < 20; i++) {
             const fish = createFish();
             
-            // 随机起始位置，在水下（y < 0）但不要太深
             const angle = Math.random() * Math.PI * 2;
-            const radius = 3 + Math.random() * 14;
+            const radius = 6 + Math.random() * 18;
             fish.position.x = Math.cos(angle) * radius;
             fish.position.z = Math.sin(angle) * radius;
-            fish.position.y = -0.5 - Math.random() * 1.5; // 水下
+            fish.position.y = -0.5 - Math.random() * 2.5;
             
-            // 随机旋转方向
             fish.rotation.y = Math.random() * Math.PI * 2;
-            fish.rotation.x = (Math.random() - 0.5) * 0.3;
-            fish.rotation.z = (Math.random() - 0.5) * 0.3;
             
-            // 存储游动速度和方向
             fish.userData = {
                 speed: 0.01 + Math.random() * 0.03,
-                direction: new THREE.Vector3(
-                    Math.random() * 2 - 1,
-                    (Math.random() - 0.5) * 0.1,
-                    Math.random() * 2 - 1
-                ).normalize(),
-                wobblePhase: Math.random() * Math.PI * 2,
-                wobbleSpeed: 0.02 + Math.random() * 0.03,
                 baseY: fish.position.y,
                 radius: radius,
                 angle: angle,
-                angularSpeed: (Math.random() * 0.5 + 0.2) * (Math.random() > 0.5 ? 1 : -1) * 0.01
+                angularSpeed: (Math.random() * 0.5 + 0.2) * (Math.random() > 0.5 ? 1 : -1) * 0.01,
+                wobblePhase: Math.random() * Math.PI * 2
             };
-            
-            // 让鱼的方向和初始旋转一致
-            fish.lookAt(fish.position.clone().add(fish.userData.direction));
             
             scene.add(fish);
             fishes.push(fish);
         }
 
-        // --- 创建海豹 ---
-        const sealGroup = new THREE.Group();
+        // --- 创建海豹函数 ---
+        function createSeal(scale = 1, colorVariant = 0) {
+            const sealGroup = new THREE.Group();
+            
+            const bodyColor = new THREE.Color().setHSL(0.55 + colorVariant * 0.05, 0.25, 0.65);
+            const headColor = new THREE.Color().setHSL(0.55 + colorVariant * 0.05, 0.25, 0.72);
+            const flipperColor = new THREE.Color().setHSL(0.55 + colorVariant * 0.05, 0.25, 0.58);
 
-        const bodyGeo = new THREE.SphereGeometry(1.2, 32, 32);
-        const bodyMat = new THREE.MeshStandardMaterial({
-            color: 0xa0b8c0,
-            roughness: 0.4,
-            metalness: 0.1,
-            emissive: new THREE.Color(0x223344),
-            emissiveIntensity: 0.1
-        });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.scale.set(1.5, 1.0, 1.2);
-        body.position.y = 0.8;
-        body.castShadow = true;
-        body.receiveShadow = true;
-        body.userData.isSealPart = true;
-        sealGroup.add(body);
+            // 身体
+            const bodyGeo = new THREE.SphereGeometry(1.2, 32, 32);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: bodyColor,
+                roughness: 0.4,
+                metalness: 0.1,
+                emissive: new THREE.Color(0x223344),
+                emissiveIntensity: 0.1
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.scale.set(1.5, 1.0, 1.2);
+            body.position.y = 0.8;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            body.userData.isSealPart = true;
+            sealGroup.add(body);
 
-        const headGeo = new THREE.SphereGeometry(0.8, 32, 32);
-        const headMat = new THREE.MeshStandardMaterial({
-            color: 0xb8d0d8,
-            roughness: 0.4,
-            metalness: 0.1
-        });
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.set(1.6, 1.1, 0);
-        head.scale.set(1.0, 1.0, 0.9);
-        head.castShadow = true;
-        head.receiveShadow = true;
-        head.userData.isSealPart = true;
-        sealGroup.add(head);
+            // 头
+            const headGeo = new THREE.SphereGeometry(0.8, 32, 32);
+            const headMat = new THREE.MeshStandardMaterial({
+                color: headColor,
+                roughness: 0.4,
+                metalness: 0.1
+            });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.set(1.6, 1.1, 0);
+            head.scale.set(1.0, 1.0, 0.9);
+            head.castShadow = true;
+            head.receiveShadow = true;
+            head.userData.isSealPart = true;
+            sealGroup.add(head);
 
-        const noseGeo = new THREE.SphereGeometry(0.2, 16);
-        const noseMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
-        const nose = new THREE.Mesh(noseGeo, noseMat);
-        nose.position.set(2.25, 1.15, 0);
-        nose.scale.set(0.8, 0.6, 0.8);
-        nose.castShadow = true;
-        nose.receiveShadow = true;
-        nose.userData.isSealPart = true;
-        sealGroup.add(nose);
+            // 鼻子
+            const noseGeo = new THREE.SphereGeometry(0.2, 16);
+            const noseMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
+            const nose = new THREE.Mesh(noseGeo, noseMat);
+            nose.position.set(2.25, 1.15, 0);
+            nose.scale.set(0.8, 0.6, 0.8);
+            nose.castShadow = true;
+            nose.receiveShadow = true;
+            nose.userData.isSealPart = true;
+            sealGroup.add(nose);
 
-        const eyeGeo = new THREE.SphereGeometry(0.12, 16);
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, emissive: new THREE.Color(0x222222), emissiveIntensity: 0.5 });
-        
-        const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
-        eye1.position.set(2.05, 1.35, 0.5);
-        eye1.castShadow = true;
-        eye1.userData.isSealPart = true;
-        sealGroup.add(eye1);
+            // 眼睛
+            const eyeGeo = new THREE.SphereGeometry(0.12, 16);
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, emissive: new THREE.Color(0x222222), emissiveIntensity: 0.5 });
+            
+            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye1.position.set(2.05, 1.35, 0.5);
+            eye1.castShadow = true;
+            eye1.userData.isSealPart = true;
+            sealGroup.add(eye1);
 
-        const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
-        eye2.position.set(2.05, 1.35, -0.5);
-        eye2.castShadow = true;
-        eye2.userData.isSealPart = true;
-        sealGroup.add(eye2);
+            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye2.position.set(2.05, 1.35, -0.5);
+            eye2.castShadow = true;
+            eye2.userData.isSealPart = true;
+            sealGroup.add(eye2);
 
-        const highlightGeo = new THREE.SphereGeometry(0.05, 8);
-        const highlightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.8 });
-        const highlight1 = new THREE.Mesh(highlightGeo, highlightMat);
-        highlight1.position.set(2.1, 1.4, 0.55);
-        highlight1.userData.isSealPart = true;
-        sealGroup.add(highlight1);
-        const highlight2 = new THREE.Mesh(highlightGeo, highlightMat);
-        highlight2.position.set(2.1, 1.4, -0.45);
-        highlight2.userData.isSealPart = true;
-        sealGroup.add(highlight2);
+            // 眼睛高光
+            const highlightGeo = new THREE.SphereGeometry(0.05, 8);
+            const highlightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.8 });
+            const highlight1 = new THREE.Mesh(highlightGeo, highlightMat);
+            highlight1.position.set(2.1, 1.4, 0.55);
+            highlight1.userData.isSealPart = true;
+            sealGroup.add(highlight1);
+            const highlight2 = new THREE.Mesh(highlightGeo, highlightMat);
+            highlight2.position.set(2.1, 1.4, -0.45);
+            highlight2.userData.isSealPart = true;
+            sealGroup.add(highlight2);
 
-        const whiskerMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.6 });
-        const whiskerPositions = [
-            { pos: [2.3, 1.25, 0.3], rotZ: 0.2 },
-            { pos: [2.35, 1.2, 0.25], rotZ: 0.4 },
-            { pos: [2.3, 1.25, -0.3], rotZ: -0.2 },
-            { pos: [2.35, 1.2, -0.25], rotZ: -0.4 }
-        ];
-        whiskerPositions.forEach((data) => {
-            const whiskerGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.6, 4);
-            const whisker = new THREE.Mesh(whiskerGeo, whiskerMat);
-            whisker.position.set(data.pos[0], data.pos[1], data.pos[2]);
-            whisker.rotation.z = data.rotZ;
-            whisker.rotation.x = 0.2;
-            whisker.castShadow = true;
-            whisker.userData.isSealPart = true;
-            sealGroup.add(whisker);
-        });
+            // 胡须
+            const whiskerMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.6 });
+            const whiskerPositions = [
+                { pos: [2.3, 1.25, 0.3], rotZ: 0.2 },
+                { pos: [2.35, 1.2, 0.25], rotZ: 0.4 },
+                { pos: [2.3, 1.25, -0.3], rotZ: -0.2 },
+                { pos: [2.35, 1.2, -0.25], rotZ: -0.4 }
+            ];
+            whiskerPositions.forEach((data) => {
+                const whiskerGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.6, 4);
+                const whisker = new THREE.Mesh(whiskerGeo, whiskerMat);
+                whisker.position.set(data.pos[0], data.pos[1], data.pos[2]);
+                whisker.rotation.z = data.rotZ;
+                whisker.rotation.x = 0.2;
+                whisker.castShadow = true;
+                whisker.userData.isSealPart = true;
+                sealGroup.add(whisker);
+            });
 
-        const flipperGeo = new THREE.SphereGeometry(0.5, 16);
-        const flipperMat = new THREE.MeshStandardMaterial({ color: 0x98b0b8, roughness: 0.5 });
-        
-        const flipperL = new THREE.Mesh(flipperGeo, flipperMat);
-        flipperL.position.set(0.9, 0.5, 1.1);
-        flipperL.scale.set(0.8, 0.25, 0.5);
-        flipperL.rotation.z = 0.4;
-        flipperL.rotation.x = -0.3;
-        flipperL.rotation.y = 0.5;
-        flipperL.castShadow = true;
-        flipperL.receiveShadow = true;
-        flipperL.userData.isSealPart = true;
-        flipperL.userData.isFlipper = true;
-        flipperL.userData.baseRotZ = 0.4;
-        sealGroup.add(flipperL);
+            // 鳍状肢
+            const flipperGeo = new THREE.SphereGeometry(0.5, 16);
+            const flipperMat = new THREE.MeshStandardMaterial({ color: flipperColor, roughness: 0.5 });
+            
+            const flipperL = new THREE.Mesh(flipperGeo, flipperMat);
+            flipperL.position.set(0.9, 0.5, 1.1);
+            flipperL.scale.set(0.8, 0.25, 0.5);
+            flipperL.rotation.z = 0.4;
+            flipperL.rotation.x = -0.3;
+            flipperL.rotation.y = 0.5;
+            flipperL.castShadow = true;
+            flipperL.receiveShadow = true;
+            flipperL.userData.isSealPart = true;
+            flipperL.userData.isFlipper = true;
+            flipperL.userData.baseRotZ = 0.4;
+            sealGroup.add(flipperL);
 
-        const flipperR = new THREE.Mesh(flipperGeo, flipperMat);
-        flipperR.position.set(0.9, 0.5, -1.1);
-        flipperR.scale.set(0.8, 0.25, 0.5);
-        flipperR.rotation.z = 0.4;
-        flipperR.rotation.x = 0.3;
-        flipperR.rotation.y = -0.5;
-        flipperR.castShadow = true;
-        flipperR.receiveShadow = true;
-        flipperR.userData.isSealPart = true;
-        flipperR.userData.isFlipper = true;
-        flipperR.userData.baseRotZ = 0.4;
-        sealGroup.add(flipperR);
+            const flipperR = new THREE.Mesh(flipperGeo, flipperMat);
+            flipperR.position.set(0.9, 0.5, -1.1);
+            flipperR.scale.set(0.8, 0.25, 0.5);
+            flipperR.rotation.z = 0.4;
+            flipperR.rotation.x = 0.3;
+            flipperR.rotation.y = -0.5;
+            flipperR.castShadow = true;
+            flipperR.receiveShadow = true;
+            flipperR.userData.isSealPart = true;
+            flipperR.userData.isFlipper = true;
+            flipperR.userData.baseRotZ = 0.4;
+            sealGroup.add(flipperR);
 
-        const backFlipperGeo = new THREE.SphereGeometry(0.4, 12);
-        const backFlipperMat = new THREE.MeshStandardMaterial({ color: 0x98b0b8, roughness: 0.5 });
-        
-        const backFlipperL = new THREE.Mesh(backFlipperGeo, backFlipperMat);
-        backFlipperL.position.set(-1.5, 0.5, 0.6);
-        backFlipperL.scale.set(1.2, 0.2, 0.6);
-        backFlipperL.rotation.z = -0.5;
-        backFlipperL.rotation.y = 0.3;
-        backFlipperL.rotation.x = 0.2;
-        backFlipperL.castShadow = true;
-        backFlipperL.receiveShadow = true;
-        backFlipperL.userData.isSealPart = true;
-        backFlipperL.userData.isFlipper = true;
-        backFlipperL.userData.baseRotZ = -0.5;
-        sealGroup.add(backFlipperL);
+            const backFlipperGeo = new THREE.SphereGeometry(0.4, 12);
+            const backFlipperMat = new THREE.MeshStandardMaterial({ color: flipperColor, roughness: 0.5 });
+            
+            const backFlipperL = new THREE.Mesh(backFlipperGeo, backFlipperMat);
+            backFlipperL.position.set(-1.5, 0.5, 0.6);
+            backFlipperL.scale.set(1.2, 0.2, 0.6);
+            backFlipperL.rotation.z = -0.5;
+            backFlipperL.rotation.y = 0.3;
+            backFlipperL.rotation.x = 0.2;
+            backFlipperL.castShadow = true;
+            backFlipperL.receiveShadow = true;
+            backFlipperL.userData.isSealPart = true;
+            backFlipperL.userData.isFlipper = true;
+            backFlipperL.userData.baseRotZ = -0.5;
+            sealGroup.add(backFlipperL);
 
-        const backFlipperR = new THREE.Mesh(backFlipperGeo, backFlipperMat);
-        backFlipperR.position.set(-1.5, 0.5, -0.6);
-        backFlipperR.scale.set(1.2, 0.2, 0.6);
-        backFlipperR.rotation.z = -0.5;
-        backFlipperR.rotation.y = -0.3;
-        backFlipperR.rotation.x = -0.2;
-        backFlipperR.castShadow = true;
-        backFlipperR.receiveShadow = true;
-        backFlipperR.userData.isSealPart = true;
-        backFlipperR.userData.isFlipper = true;
-        backFlipperR.userData.baseRotZ = -0.5;
-        sealGroup.add(backFlipperR);
+            const backFlipperR = new THREE.Mesh(backFlipperGeo, backFlipperMat);
+            backFlipperR.position.set(-1.5, 0.5, -0.6);
+            backFlipperR.scale.set(1.2, 0.2, 0.6);
+            backFlipperR.rotation.z = -0.5;
+            backFlipperR.rotation.y = -0.3;
+            backFlipperR.rotation.x = -0.2;
+            backFlipperR.castShadow = true;
+            backFlipperR.receiveShadow = true;
+            backFlipperR.userData.isSealPart = true;
+            backFlipperR.userData.isFlipper = true;
+            backFlipperR.userData.baseRotZ = -0.5;
+            sealGroup.add(backFlipperR);
 
-        sealGroup.rotation.z = -0.05;
-        sealGroup.rotation.y = 0.2;
-        sealGroup.position.y = 0.1;
+            sealGroup.scale.set(scale, scale, scale);
+            return sealGroup;
+        }
 
-        scene.add(sealGroup);
+        // --- 第一只海豹 (浮冰左侧) ---
+        const seal1 = createSeal(1.0, 0);
+        seal1.position.set(-1.0, 0.45, 0.8);
+        seal1.rotation.y = 0.5;
+        seal1.rotation.z = -0.05;
+        seal1.userData = {
+            baseY: 0.45,
+            breatheSpeed: 3,
+            breatheAmp: 0.05,
+            swaySpeed: 2.5,
+            headSwaySpeed: 1.8,
+            jumpTime: 0,
+            jumpOffset: 0,
+            baseRotY: 0.5,
+            baseRotZ: -0.05
+        };
+        scene.add(seal1);
 
-        // 环境装饰
+        // --- 第二只海豹 (往后移，浮冰右后方) ---
+        const seal2 = createSeal(0.85, 0.15);
+        seal2.position.set(2.2, 0.45, -2.0);  // 后移
+        seal2.rotation.y = -1.0;              // 转向
+        seal2.rotation.z = 0.03;
+        seal2.userData = {
+            baseY: 0.45,
+            breatheSpeed: 2.5,
+            breatheAmp: 0.04,
+            swaySpeed: 2.0,
+            headSwaySpeed: 1.5,
+            jumpTime: 0,
+            jumpOffset: 0,
+            baseRotY: -1.0,
+            baseRotZ: 0.03
+        };
+        scene.add(seal2);
+
+        const seals = [seal1, seal2];
+
+        // 环境装饰 (贝壳、球)
         const ballGeo = new THREE.SphereGeometry(0.5, 16);
         const ballMat = new THREE.MeshStandardMaterial({ color: 0xffaa66, roughness: 0.3, emissive: new THREE.Color(0x442200), emissiveIntensity: 0.2 });
         const ball = new THREE.Mesh(ballGeo, ballMat);
-        ball.position.set(-3, 0.5, 3);
+        ball.position.set(-6, 0.5, 6);
         ball.castShadow = true;
         ball.receiveShadow = true;
         scene.add(ball);
 
-        const shellGeo = new THREE.SphereGeometry(0.2, 8);
+        const shellGeo = new THREE.SphereGeometry(0.18, 8);
         const shellMat = new THREE.MeshStandardMaterial({ color: 0xffddbb, roughness: 0.7 });
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 15; i++) {
             const shell = new THREE.Mesh(shellGeo, shellMat);
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 6 + Math.random() * 8;
-            shell.position.set(Math.cos(angle) * radius, 0.1, Math.sin(angle) * radius);
+            
+            let baseX, baseZ;
+            if (Math.random() < 0.5) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 10 + Math.random() * 14;
+                baseX = Math.cos(angle) * radius;
+                baseZ = Math.sin(angle) * radius;
+            } else {
+                const patch = sandPatches[Math.floor(Math.random() * sandPatches.length)];
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * patch.radius * 0.7;
+                baseX = patch.pos[0] + Math.cos(angle) * radius;
+                baseZ = patch.pos[2] + Math.sin(angle) * radius;
+            }
+            
+            shell.position.set(baseX, 0.08, baseZ);
             shell.scale.set(1, 0.5, 1);
             shell.castShadow = true;
             shell.receiveShadow = true;
@@ -615,7 +768,6 @@
         let audioContext = null;
         let noiseNode = null;
         let gainNode = null;
-        let isAudioPlaying = false;
 
         function initAudio() {
             if (audioContext) return;
@@ -655,7 +807,6 @@
                 gainNode.connect(audioContext.destination);
 
                 noiseNode.start(0);
-                isAudioPlaying = true;
                 console.log('🌊 海风音效已启动');
             } catch (e) {
                 console.warn('音频初始化失败:', e);
@@ -666,30 +817,21 @@
             if (!audioContext) {
                 initAudio();
             } else if (audioContext.state === 'suspended') {
-                audioContext.resume().then(() => {
-                    console.log('音频上下文已恢复');
-                });
+                audioContext.resume();
             }
         }
 
-        // 嗷呜叫声
         function playWoofSound() {
             if (!audioContext) {
                 try {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                } catch (e) {
-                    console.warn('音频上下文创建失败');
-                    return;
-                }
+                } catch (e) { return; }
             }
             
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
+            if (audioContext.state === 'suspended') audioContext.resume();
             
             try {
                 const now = audioContext.currentTime;
-                
                 const osc1 = audioContext.createOscillator();
                 const osc2 = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
@@ -697,15 +839,17 @@
                 osc1.type = 'sine';
                 osc2.type = 'triangle';
                 
-                osc1.frequency.setValueAtTime(600, now);
-                osc1.frequency.exponentialRampToValueAtTime(300, now + 0.15);
-                osc1.frequency.exponentialRampToValueAtTime(450, now + 0.3);
-                osc1.frequency.exponentialRampToValueAtTime(200, now + 0.6);
+                const baseFreq = 550 + Math.random() * 150;
                 
-                osc2.frequency.setValueAtTime(598, now);
-                osc2.frequency.exponentialRampToValueAtTime(298, now + 0.15);
-                osc2.frequency.exponentialRampToValueAtTime(448, now + 0.3);
-                osc2.frequency.exponentialRampToValueAtTime(198, now + 0.6);
+                osc1.frequency.setValueAtTime(baseFreq, now);
+                osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, now + 0.15);
+                osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.75, now + 0.3);
+                osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.33, now + 0.6);
+                
+                osc2.frequency.setValueAtTime(baseFreq * 0.996, now);
+                osc2.frequency.exponentialRampToValueAtTime(baseFreq * 0.498, now + 0.15);
+                osc2.frequency.exponentialRampToValueAtTime(baseFreq * 0.747, now + 0.3);
+                osc2.frequency.exponentialRampToValueAtTime(baseFreq * 0.329, now + 0.6);
                 
                 gainNode.gain.setValueAtTime(0, now);
                 gainNode.gain.linearRampToValueAtTime(0.4, now + 0.05);
@@ -721,14 +865,10 @@
                 osc2.start(now);
                 osc1.stop(now + 0.7);
                 osc2.stop(now + 0.7);
-                
-                console.log('🦭 嗷呜～');
-            } catch (e) {
-                console.warn('嗷呜播放失败:', e);
-            }
+            } catch (e) {}
         }
 
-        // --- 公告点击 ---
+        // --- 公告 ---
         const announcementDiv = document.getElementById('announcement');
         const loadingToast = document.getElementById('loading-toast');
 
@@ -739,10 +879,9 @@
             window.open('https://afdhj457.github.io/Evolution-history/', '_blank');
         });
 
-        // --- 点击海豹检测 (桌面 + 移动端) ---
+        // --- 点击海豹 ---
         const woofToast = document.getElementById('woof-toast');
         
-        // 通用的点击处理函数
         function handleSealClick(clientX, clientY) {
             const rect = renderer.domElement.getBoundingClientRect();
             mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -750,37 +889,39 @@
             
             raycaster.setFromCamera(mouse, camera);
             
-            const intersects = raycaster.intersectObjects(sealGroup.children, true);
+            let allIntersects = [];
+            seals.forEach(seal => {
+                const intersects = raycaster.intersectObjects(seal.children, true);
+                if (intersects.length > 0) {
+                    allIntersects = allIntersects.concat(intersects.map(i => ({...i, seal: seal})));
+                }
+            });
             
-            if (intersects.length > 0) {
+            if (allIntersects.length > 0) {
+                allIntersects.sort((a, b) => a.distance - b.distance);
+                const clickedSeal = allIntersects[0].seal;
+                
                 playWoofSound();
                 woofToast.classList.add('show');
                 setTimeout(() => woofToast.classList.remove('show'), 800);
                 
-                sealGroup.userData.jumpTime = 0.3;
-                sealGroup.userData.jumpOffset = 0.4;
-                
+                clickedSeal.userData.jumpTime = 0.3;
+                clickedSeal.userData.jumpOffset = 0.45;
                 playOceanSound();
-                return true;
             }
-            return false;
         }
         
-        // 桌面端点击
         renderer.domElement.addEventListener('click', (event) => {
             handleSealClick(event.clientX, event.clientY);
         });
         
-        // 移动端触摸
         renderer.domElement.addEventListener('touchstart', (event) => {
             if (event.touches.length === 1) {
-                const touch = event.touches[0];
-                // 延迟一点，避免与拖拽旋转冲突？不冲突，这里只检测海豹
-                handleSealClick(touch.clientX, touch.clientY);
+                handleSealClick(event.touches[0].clientX, event.touches[0].clientY);
             }
         }, { passive: true });
 
-        // --- 键盘WASD ---
+        // --- 键盘 ---
         window.addEventListener('keydown', (e) => {
             switch(e.key.toLowerCase()) {
                 case 'w': moveState.forward = true; e.preventDefault(); break;
@@ -799,7 +940,7 @@
             }
         });
 
-        // --- 移动端虚拟摇杆 ---
+        // --- 摇杆 ---
         const joystickZone = document.getElementById('joystick-zone');
         const joystickKnob = document.getElementById('joystick-knob');
         
@@ -836,15 +977,13 @@
         joystickZone.addEventListener('touchstart', (e) => {
             e.preventDefault();
             joystickActive = true;
-            const touch = e.touches[0];
-            updateJoystickPosition(touch.clientX, touch.clientY);
+            updateJoystickPosition(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: false });
         
         joystickZone.addEventListener('touchmove', (e) => {
             e.preventDefault();
             if (!joystickActive) return;
-            const touch = e.touches[0];
-            updateJoystickPosition(touch.clientX, touch.clientY);
+            updateJoystickPosition(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: false });
         
         joystickZone.addEventListener('touchend', (e) => {
@@ -895,9 +1034,9 @@
             controls.target.add(moveDelta);
             
             if (camera.position.y < 1.5) camera.position.y = 1.5;
-            if (camera.position.y > 15) camera.position.y = 15;
+            if (camera.position.y > 20) camera.position.y = 20;
             
-            const maxDist = 18;
+            const maxDist = 28;
             const targetDist = Math.sqrt(controls.target.x*controls.target.x + controls.target.z*controls.target.z);
             if (targetDist > maxDist) {
                 const factor = maxDist / targetDist;
@@ -908,71 +1047,64 @@
             }
         }
 
-        // --- 海豹动画状态 ---
-        let sealTime = 0;
-        
-        // --- 动画循环 ---
+        // --- 动画 ---
         let clock = new THREE.Clock();
+        let globalTime = 0;
 
         function animate() {
             const delta = clock.getDelta();
             const elapsedTime = performance.now() / 1000;
+            globalTime += delta;
             
             // 海豹动画
-            sealTime += delta;
-            
-            sealGroup.children.forEach(child => {
-                if (child.userData.isFlipper) {
-                    const baseRotZ = child.userData.baseRotZ || 0;
-                    const freq = child.position.z > 0 ? 4 : 3;
-                    child.rotation.z = baseRotZ + Math.sin(sealTime * freq) * 0.2;
+            seals.forEach((seal, index) => {
+                const data = seal.userData;
+                const timeOffset = index * 1.5;
+                
+                seal.children.forEach(child => {
+                    if (child.userData.isFlipper) {
+                        const baseRotZ = child.userData.baseRotZ || 0;
+                        const freq = child.position.z > 0 ? 4 : 3;
+                        child.rotation.z = baseRotZ + Math.sin((globalTime + timeOffset) * freq) * 0.2;
+                    }
+                });
+                
+                const bodySway = Math.sin((globalTime + timeOffset) * data.swaySpeed) * 0.03;
+                seal.rotation.z = data.baseRotZ + bodySway;
+                
+                const headSway = Math.sin((globalTime + timeOffset) * data.headSwaySpeed) * 0.05;
+                seal.rotation.y = data.baseRotY + headSway;
+                
+                const breathe = Math.sin((globalTime + timeOffset) * data.breatheSpeed) * data.breatheAmp;
+                const baseY = data.baseY + breathe;
+                
+                if (data.jumpTime > 0) {
+                    data.jumpTime -= delta;
+                    const jumpProgress = 1 - (data.jumpTime / 0.3);
+                    const jumpHeight = Math.sin(jumpProgress * Math.PI) * (data.jumpOffset || 0.4);
+                    seal.position.y = baseY + jumpHeight;
+                } else {
+                    seal.position.y = baseY;
                 }
             });
             
-            const bodySway = Math.sin(sealTime * 2.5) * 0.03;
-            sealGroup.rotation.z = -0.05 + bodySway;
-            
-            const headSway = Math.sin(sealTime * 1.8) * 0.05;
-            sealGroup.rotation.y = 0.2 + headSway;
-            
-            const breathe = Math.sin(sealTime * 3) * 0.05;
-            const baseY = 0.1 + breathe;
-            
-            if (sealGroup.userData.jumpTime > 0) {
-                sealGroup.userData.jumpTime -= delta;
-                const jumpProgress = 1 - (sealGroup.userData.jumpTime / 0.3);
-                const jumpHeight = Math.sin(jumpProgress * Math.PI) * (sealGroup.userData.jumpOffset || 0.4);
-                sealGroup.position.y = baseY + jumpHeight;
-            } else {
-                sealGroup.position.y = baseY;
-            }
-            
-            sealGroup.position.x = Math.sin(sealTime * 0.5) * 0.1;
-            sealGroup.position.z = Math.cos(sealTime * 0.7) * 0.1;
-            
-            // --- 鱼群游动逻辑 ---
+            // 鱼群
             fishes.forEach(fish => {
                 const data = fish.userData;
-                
-                // 沿着圆周游动，但也会随机改变半径和角度
                 data.angle += data.angularSpeed * delta * 60;
                 
-                // 随机改变方向
                 if (Math.random() < 0.005) {
                     data.angularSpeed = (Math.random() * 0.5 + 0.2) * (Math.random() > 0.5 ? 1 : -1) * 0.01;
                 }
                 
-                // 计算新位置（在圆周上，y轴上下浮动）
                 const targetX = Math.cos(data.angle) * data.radius;
                 const targetZ = Math.sin(data.angle) * data.radius;
                 const targetY = data.baseY + Math.sin(elapsedTime * 0.8 + data.wobblePhase) * 0.2;
                 
-                // 平滑移动
                 fish.position.x += (targetX - fish.position.x) * 0.02;
                 fish.position.z += (targetZ - fish.position.z) * 0.02;
                 fish.position.y += (targetY - fish.position.y) * 0.05;
                 
-                // 让鱼朝向移动方向
                 if (fish.position.length() > 0.1) {
                     const dir = new THREE.Vector3(targetX - fish.position.x, 0, targetZ - fish.position.z).normalize();
                     if (dir.length() > 0.1) {
@@ -984,18 +1116,14 @@
                     }
                 }
                 
-                // 尾巴摆动
-                if (fish.children[1]) { // 尾巴是第二个子元素
+                if (fish.children[1]) {
                     fish.children[1].rotation.z = Math.PI / 2 + Math.sin(elapsedTime * 8 + data.wobblePhase) * 0.3;
                 }
             });
             
-            // 水面轻微波动
             waterPlane.position.y = 0.02 + Math.sin(elapsedTime * 1.5) * 0.01;
             
-            // 处理相机移动
             moveCamera();
-            
             controls.update();
             renderer.render(scene, camera);
             requestAnimationFrame(animate);
@@ -1003,14 +1131,13 @@
 
         animate();
 
-        // 窗口自适应
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        console.log('🦭 海豹会持续游动，点击它试试看！水下有鱼群游过～');
+        console.log('🦭 多块沙滩场景已加载！第二只海豹已后移。');
     </script>
 </body>
 </html>
